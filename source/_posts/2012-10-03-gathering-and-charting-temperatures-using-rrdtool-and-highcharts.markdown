@@ -13,7 +13,7 @@ USB-WDE1 Receiver
 
 The USB Weather Data Receiver USB-WDE1 wirelessly receives data from various weather sensors of ELV at 868 MHz. The receiver is connected to a USB port on the computer, so no additional power supply is required. The data is transmitted via a simple serial ASCII protocol, which is well documented by ELV. The RasberryPi running Raspbian is used for the data acquisition allowing very little power consumption while being completely flexible.
 
-![USB WD1 Receiver](../images/USB-WD1-Receiver.jpg)
+![USB WDE1 Receiver](../images/USB-WDE1-Receiver.jpg)
 
 The USB interface of the USB WDE1 is realized by the USB-serial converter CP 2102 of Silicon Labs. The responsible kernel module CP2101 for accessing the device is included in any modern Linux distribution. When connecting the USB-WDE1 should appear in the system once the appropriate messages:
 {% codeblock %}
