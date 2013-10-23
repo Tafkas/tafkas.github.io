@@ -9,6 +9,7 @@ author: Christian Stade-Schuldt
 simple_search: http://google.com/search
 description:
 
+
 # Default date format is "ordinal" (resulting in "July 22nd 2007")
 # You can customize the format as defined in
 # http://www.ruby-doc.org/core-1.9.2/Time.html#method-i-strftime
@@ -19,7 +20,7 @@ date_format: "ordinal"
 subscribe_rss: /atom.xml
 subscribe_email:
 # RSS feeds can list your email address if you like
-email:
+email: tafkasorg@yahoo.de
 
 # ----------------------- #
 #    Jekyll & Plugins     #
