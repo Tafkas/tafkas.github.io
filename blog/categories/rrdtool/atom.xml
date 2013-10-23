@@ -1,0 +1,630 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: rrdtool | My Octopress Blog]]></title>
+  <link href="http://Tafkas.github.io/blog/categories/rrdtool/atom.xml" rel="self"/>
+  <link href="http://Tafkas.github.io/"/>
+  <updated>2013-10-23T21:22:29+02:00</updated>
+  <id>http://Tafkas.github.io/</id>
+  <author>
+    <name><![CDATA[Your Name]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Gathering and Charting Temperatures using RRDTool and Highcharts]]></title>
+    <link href="http://Tafkas.github.io/blog/2012/10/03/gathering-and-charting-temperatures-using-rrdtool-and-highcharts/"/>
+    <updated>2012-10-03T19:45:00+02:00</updated>
+    <id>http://Tafkas.github.io/blog/2012/10/03/gathering-and-charting-temperatures-using-rrdtool-and-highcharts</id>
+    <content type="html"><![CDATA[<p>For quite long time I was looking for a way to monitor and record th temperature and humidity at my apartment. What was missing was a convenient, preferably wireless, solution. After receiving my RaspberryPi I started to look into that more intensively.</p>
+
+<h2>USB-WDE1 Receiver</h2>
+
+<p>The USB Weather Data Receiver USB-WDE1 wirelessly receives data from various weather sensors of ELV at 868 MHz. The receiver is connected to a USB port on the computer, so no additional power supply is required. The data is transmitted via a simple serial ASCII protocol, which is well documented by ELV. The RasberryPi running Raspbian is used for the data acquisition allowing very little power consumption while being completely flexible.</p>
+
+<p><img src="../images/USB-WD1-Receiver.jpg" alt="USB WD1 Receiver" /></p>
+
+<p>The USB interface of the USB WDE1 is realized by the USB-serial converter CP 2102 of Silicon Labs. The responsible kernel module CP2101 for accessing the device is included in any modern Linux distribution. When connecting the USB-WDE1 should appear in the system once the appropriate messages:
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ Dmesg
+</span><span class='line'>usb 1-3.1: Product: ELV USB WDE1 weather data receiver
+</span><span class='line'>usb 1-3.1: Manufacturer: Silicon Labs</span></code></pre></td></tr></table></div></figure></notextile></div>
+The udev subsystem then also creates a corresponding device file, usually is the / dev/ttyUSB0. This device behaves as seen by a Linux application program such as a serial port and therefore can be accessed with any terminal program such as minicom. If you connect other USB-to-serial converter to the RaspberryPi, the device can also be called /dev/ttyUSB1 or similar. It is important to set the baud rate to 9600 bits/s.</p>
+
+<p>A simple and universal way to output the data supplied by the receiver on the terminal provides to tool socat, which should also be part of any Linux distribution. You may have to re-install it via the package manager. Using</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>socat / dev/ttyUSB0, B9600 STDOUT</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$1;1;;21,6;9,5;21,6;21,3;21,1;19,2;;;58;78;58;59;42;53;;;;;;;;0
+</span><span class='line'>$1;1;;21,6;9,5;21,6;21,3;21,1;19,3;;;58;78;58;59;42;53;;;;;;;;0
+</span><span class='line'>$1;1;;21,6;9,5;21,6;21,3;21,1;19,3;;;58;78;58;59;42;53;;;;;;;;0</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>Each line represents a complete data set consisting of 25 semicolon-separated fields. The first three fields are immutable, followed by the measured temperature (°C) of eight sensors and their humidity values​(%). The next fields show temperature (° C), humidity (%), wind speed (km / h), precipitation (rocker beats) and rain sensor (0/1) of the combination sensors. Since I do not have a combination sensor I won&rsquo;t focus on those values. The last field with the fixed value of 0 indicates the end of the record.</p>
+
+<h2>Gathering Data With RRDtool</h2>
+
+<p>Now that I could receive temperature, as well as humidity, from the sensors I needed to come up with a way to store the information. For this I chose the RRDTool package to manage the data. Its a circular (RR in RRD stands for Round Robin) database that lets you store a predefined amount of data. After initial creation of the DB it is as big as it will ever get and just contains &ldquo;unknown&rdquo; data. This is a widely used open source package that has a bit of a steep learning curve on some of its aspects but gives you everything for functionality. It works on multiple platforms including Linux and Windows and has a large, active support community.</p>
+
+<p>The &lsquo;rrdtool create&rsquo; command is used to setup the database. Here&rsquo;s the tmpdb.sh bash script I used to set it up:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>rrdtool create temperatures.rrd \
+</span><span class='line'>&mdash;start N \
+</span><span class='line'>&mdash;step 300 \
+</span><span class='line'> DS:temps1:GAUGE:1200:-40:50 \
+</span><span class='line'> DS:temps2:GAUGE:1200:-40:50 \
+</span><span class='line'> DS:temps3:GAUGE:1200:-40:50 \
+</span><span class='line'> DS:temps4:GAUGE:1200:-40:50 \
+</span><span class='line'> DS:temps5:GAUGE:1200:-40:50 \
+</span><span class='line'> DS:temps6:GAUGE:1200:-40:50 \
+</span><span class='line'> DS:temps7:GAUGE:1200:-40:50 \
+</span><span class='line'> DS:temps8:GAUGE:1200:-40:50 \
+</span><span class='line'> DS:hums1:GAUGE:1200:0:100 \
+</span><span class='line'> DS:hums2:GAUGE:1200:0:100 \
+</span><span class='line'> DS:hums3:GAUGE:1200:0:100 \
+</span><span class='line'> DS:hums4:GAUGE:1200:0:100 \
+</span><span class='line'> DS:hums5:GAUGE:1200:0:100 \
+</span><span class='line'> DS:hums6:GAUGE:1200:0:100 \
+</span><span class='line'> DS:hums7:GAUGE:1200:0:100 \
+</span><span class='line'> DS:hums8:GAUGE:1200:0:100 \
+</span><span class='line'> RRA:AVERAGE:0.5:1:2880 \
+</span><span class='line'> RRA:AVERAGE:0.5:6:700 \
+</span><span class='line'> RRA:AVERAGE:0.5:6:700 \
+</span><span class='line'> RRA:AVERAGE:0.5:24:775 \
+</span><span class='line'> RRA:AVERAGE:0.5:144:1500 \
+</span><span class='line'> RRA:AVERAGE:0.5:288:2000 \
+</span><span class='line'> RRA:MIN:0.5:1:600 \
+</span><span class='line'> RRA:MIN:0.5:6:700 \
+</span><span class='line'> RRA:MIN:0.5:24:775 \
+</span><span class='line'> RRA:MIN:0.5:144:1500 \
+</span><span class='line'> RRA:MIN:0.5:288:2000 \
+</span><span class='line'> RRA:MAX:0.5:6:700 \
+</span><span class='line'> RRA:MAX:0.5:24:775 \
+</span><span class='line'> RRA:MAX:0.5:144:1500 \
+</span><span class='line'> RRA:MAX:0.5:288:2000 \</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>Once I had setup the database I needed something to read all of the sensors every 5 minutes and place the data in the DB. For this I run a little script:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p></span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>The script remains in an infinite loop while socat receives data from the sensors. After a complete line has been received, rrdtool updates database.</p>
+
+<h2>Graphs</h2>
+
+<p>Once you have some data in your temperatures.rrd database it is time to create some charts. rrdtool comes with a built-in graphics engine that can be utilized to easily create some charts. One drawback though is, that the generated charts do not look very appealing:</p>
+
+<p>Another reason to avoid pre-generated graphics is that the creating process takes lots of cpu power, where with the RaspberryPi this is a very limited resource. In the beginning I created the charts every five minutes. Later I changed the schedule to every hour for the periods of month and year. Even then I was not totally happy with the result. After looking for alternatives on the Internet I stumled upon Highcharts, a charting library written in pure JavaScript. This approach delegates the chart generating to the client side. Therefor I export data from the RRDTool to an xml file:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+<span class='line-number'>96</span>
+<span class='line-number'>97</span>
+<span class='line-number'>98</span>
+<span class='line-number'>99</span>
+<span class='line-number'>100</span>
+<span class='line-number'>101</span>
+<span class='line-number'>102</span>
+<span class='line-number'>103</span>
+<span class='line-number'>104</span>
+<span class='line-number'>105</span>
+<span class='line-number'>106</span>
+<span class='line-number'>107</span>
+<span class='line-number'>108</span>
+<span class='line-number'>109</span>
+<span class='line-number'>110</span>
+<span class='line-number'>111</span>
+<span class='line-number'>112</span>
+<span class='line-number'>113</span>
+<span class='line-number'>114</span>
+<span class='line-number'>115</span>
+<span class='line-number'>116</span>
+<span class='line-number'>117</span>
+<span class='line-number'>118</span>
+<span class='line-number'>119</span>
+<span class='line-number'>120</span>
+<span class='line-number'>121</span>
+<span class='line-number'>122</span>
+<span class='line-number'>123</span>
+<span class='line-number'>124</span>
+<span class='line-number'>125</span>
+<span class='line-number'>126</span>
+<span class='line-number'>127</span>
+<span class='line-number'>128</span>
+<span class='line-number'>129</span>
+<span class='line-number'>130</span>
+<span class='line-number'>131</span>
+<span class='line-number'>132</span>
+<span class='line-number'>133</span>
+<span class='line-number'>134</span>
+<span class='line-number'>135</span>
+<span class='line-number'>136</span>
+<span class='line-number'>137</span>
+<span class='line-number'>138</span>
+<span class='line-number'>139</span>
+<span class='line-number'>140</span>
+<span class='line-number'>141</span>
+<span class='line-number'>142</span>
+<span class='line-number'>143</span>
+<span class='line-number'>144</span>
+<span class='line-number'>145</span>
+<span class='line-number'>146</span>
+<span class='line-number'>147</span>
+<span class='line-number'>148</span>
+<span class='line-number'>149</span>
+<span class='line-number'>150</span>
+<span class='line-number'>151</span>
+<span class='line-number'>152</span>
+<span class='line-number'>153</span>
+<span class='line-number'>154</span>
+<span class='line-number'>155</span>
+<span class='line-number'>156</span>
+<span class='line-number'>157</span>
+<span class='line-number'>158</span>
+<span class='line-number'>159</span>
+<span class='line-number'>160</span>
+<span class='line-number'>161</span>
+<span class='line-number'>162</span>
+<span class='line-number'>163</span>
+<span class='line-number'>164</span>
+<span class='line-number'>165</span>
+<span class='line-number'>166</span>
+<span class='line-number'>167</span>
+<span class='line-number'>168</span>
+<span class='line-number'>169</span>
+<span class='line-number'>170</span>
+<span class='line-number'>171</span>
+<span class='line-number'>172</span>
+<span class='line-number'>173</span>
+<span class='line-number'>174</span>
+<span class='line-number'>175</span>
+<span class='line-number'>176</span>
+<span class='line-number'>177</span>
+<span class='line-number'>178</span>
+<span class='line-number'>179</span>
+<span class='line-number'>180</span>
+<span class='line-number'>181</span>
+<span class='line-number'>182</span>
+<span class='line-number'>183</span>
+<span class='line-number'>184</span>
+<span class='line-number'>185</span>
+<span class='line-number'>186</span>
+<span class='line-number'>187</span>
+<span class='line-number'>188</span>
+<span class='line-number'>189</span>
+<span class='line-number'>190</span>
+<span class='line-number'>191</span>
+<span class='line-number'>192</span>
+<span class='line-number'>193</span>
+<span class='line-number'>194</span>
+<span class='line-number'>195</span>
+<span class='line-number'>196</span>
+<span class='line-number'>197</span>
+<span class='line-number'>198</span>
+<span class='line-number'>199</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;h1>!/usr/bin/env bash&lt;/h1>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-3h -e now &mdash;step 300 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:temps1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:temps2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:temps3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:temps4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:temps5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:temps6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > temperature3h.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-24h -e now &mdash;step 900 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:temps1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:temps2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:temps3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:temps4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:temps5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:temps6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > temperature24h.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-48h -e now &mdash;step 1800 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:temps1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:temps2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:temps3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:temps4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:temps5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:temps6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > temperature48h.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-8d -e now &mdash;step 7200 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:temps1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:temps2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:temps3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:temps4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:temps5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:temps6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > temperature1w.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-1month -e now &mdash;step 10800 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:temps1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:temps2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:temps3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:temps4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:temps5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:temps6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > temperature1m.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-3month -e now &mdash;step 43200 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:temps1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:temps2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:temps3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:temps4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:temps5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:temps6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > temperature3m.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-1y -e now &mdash;step 86400 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:temps1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:temps2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:temps3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:temps4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:temps5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:temps6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > temperature1y.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-3h -e now &mdash;step 300 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:hums1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:hums2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:hums3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:hums4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:hums5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:hums6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > humid3h.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-24h -e now &mdash;step 900 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:hums1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:hums2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:hums3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:hums4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:hums5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:hums6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > humid24h.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-48h -e now &mdash;step 1800 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:hums1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:hums2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:hums3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:hums4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:hums5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:hums6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > humid48h.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-8d -e now &mdash;step 7200 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:hums1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:hums2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:hums3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:hums4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:hums5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:hums6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > humid1w.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-1month -e now &mdash;step 10800 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:hums1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:hums2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:hums3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:hums4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:hums5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:hums6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > humid1m.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-3month -e now &mdash;step 43200 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:hums1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:hums2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:hums3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:hums4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:hums5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:hums6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > humid3m.xml&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;p>rrdtool xport -s now-1year -e now &mdash;step 86400 \
+</span><span class='line'>DEF:a=/home/pi/weather/temperatures.rrd:hums1:AVERAGE \
+</span><span class='line'>DEF:b=/home/pi/weather/temperatures.rrd:hums2:AVERAGE \
+</span><span class='line'>DEF:c=/home/pi/weather/temperatures.rrd:hums3:AVERAGE \
+</span><span class='line'>DEF:d=/home/pi/weather/temperatures.rrd:hums4:AVERAGE \
+</span><span class='line'>DEF:e=/home/pi/weather/temperatures.rrd:hums5:AVERAGE \
+</span><span class='line'>DEF:f=/home/pi/weather/temperatures.rrd:hums6:AVERAGE \
+</span><span class='line'>XPORT:a:&ldquo;Livingroom&rdquo; \
+</span><span class='line'>XPORT:b:&ldquo;Outside&rdquo; \
+</span><span class='line'>XPORT:c:&ldquo;Bathroom&rdquo; \
+</span><span class='line'>XPORT:d:&ldquo;Bedroom&rdquo; \
+</span><span class='line'>XPORT:e:&ldquo;Staircase&rdquo; \
+</span><span class='line'>XPORT:f:&ldquo;Basement&rdquo; > humid1y.xml</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>This results in a bunch of xml files. I use the jQuery.get method to get the contents of the xml files. In the success callback function, I parse the returned values, add the results to the series members of the options object, and create the chart:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$.ajax({&lt;/p>
+</span><span class='line'>
+</span><span class='line'>&lt;pre>&lt;code>type: "GET",
+</span><span class='line'>url: "data/temperature24h.xml",
+</span><span class='line'>dataType: "xml",
+</span><span class='line'>success: function(xml) {
+</span><span class='line'>    var series = []
+</span><span class='line'>
+</span><span class='line'>    //define series
+</span><span class='line'>    $(xml).find("entry").each(function() {
+</span><span class='line'>        var seriesOptions = {
+</span><span class='line'>            name: $(this).text(),
+</span><span class='line'>            data: []
+</span><span class='line'>        };
+</span><span class='line'>        options.series.push(seriesOptions);
+</span><span class='line'>    });
+</span><span class='line'>
+</span><span class='line'>    //populate with data
+</span><span class='line'>    $(xml).find("row").each(function() {
+</span><span class='line'>        var t = parseInt($(this).find("t").text()) * 1000
+</span><span class='line'>
+</span><span class='line'>        $(this).find("v").each(function(index) {
+</span><span class='line'>            var v = parseFloat($(this).text())
+</span><span class='line'>            v = v || null
+</span><span class='line'>            if (v != null) {
+</span><span class='line'>                options.series[index].data.push([t, v])
+</span><span class='line'>            };
+</span><span class='line'>        });
+</span><span class='line'>    });
+</span><span class='line'>
+</span><span class='line'>    options.title.text = "Temperatures of the last 24h"
+</span><span class='line'>    $.each(series, function(index) {
+</span><span class='line'>        options.series.push(series[index]);
+</span><span class='line'>    });
+</span><span class='line'>    chart = new Highcharts.Chart(options);
+</span><span class='line'>}
+</span><span class='line'>&lt;/code>&lt;/pre>
+</span><span class='line'>
+</span><span class='line'>&lt;p>});</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<h2>Update Nov 26th 2012:</h2>
+
+<p>I added some Javascript that computes sunrise and sunset for the 24h, 28h, weekly and monthly chart. Then I use this information to plot vertical bands on the chart indicating the effects of the sun on temperatures (and humidities).</p>
+]]></content>
+  </entry>
+  
+</feed>
