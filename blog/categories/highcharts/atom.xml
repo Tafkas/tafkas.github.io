@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
 
-  <title><![CDATA[Category: highcharts | My Octopress Blog]]></title>
+  <title><![CDATA[Category: highcharts | Tafkas' Blog]]></title>
   <link href="http://Tafkas.github.io/blog/categories/highcharts/atom.xml" rel="self"/>
   <link href="http://Tafkas.github.io/"/>
-  <updated>2013-10-23T21:44:46+02:00</updated>
+  <updated>2013-10-23T21:54:08+02:00</updated>
   <id>http://Tafkas.github.io/</id>
   <author>
-    <name><![CDATA[Your Name]]></name>
+    <name><![CDATA[Christian Stade-Schuldt]]></name>
     
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
