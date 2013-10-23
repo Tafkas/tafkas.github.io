@@ -1,32 +1,32 @@
 
-<!DOCTYPE html>
-<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
-<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
-<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
-<head>
-  <meta charset="utf-8">
-  <title>Gathering and Charting Temperatures using RRDTool and Highcharts - My Octopress Blog</title>
-  <meta name="author" content="Your Name">
+<!DOCTYPE HTML>
 
-  
-  <meta name="description" content="For quite long time I was looking for a way to monitor and record th temperature and humidity at my apartment. What was missing was a convenient, &hellip;">
-  
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>Gathering and Charting Temperatures using RRDTool and Highcharts - Tafkas' Blog</title>
+	<meta name="author" content="Christian Stade-Schuldt">
+
+	
+	<meta name="description" content="Gathering and Charting Temperatures Using RRDTool and Highcharts For quite long time I was looking for a way to monitor and record th temperature &hellip;">
+	
 
   <!-- http://t.co/dKP3o1e -->
   <meta name="HandheldFriendly" content="True">
   <meta name="MobileOptimized" content="320">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  
-  <link rel="canonical" href="http://Tafkas.github.io/blog/2012/10/03/gathering-and-charting-temperatures-using-rrdtool-and-highcharts">
-  <link href="/favicon.png" rel="icon">
-  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
-  <link href="/atom.xml" rel="alternate" title="My Octopress Blog" type="application/atom+xml">
-  <script src="/javascripts/modernizr-2.0.js"></script>
-  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
-  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/lib/jquery.min.js"%3E%3C/script%3E'))</script>
-  <script src="/javascripts/octopress.js" type="text/javascript"></script>
-  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+	<link href="/atom.xml" rel="alternate" title="Tafkas' Blog" type="application/atom+xml">
+	
+	<link rel="canonical" href="http://Tafkas.github.io/blog/2012/10/03/gathering-and-charting-temperatures-using-rrdtool-and-highcharts/">
+	<link href="/favicon.png" rel="shortcut icon">
+	<link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+	<link href="/stylesheets/font-awesome.min.css" media="screen, projection" rel="stylesheet" type="text/css">
+	<!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+	<link href='http://fonts.googleapis.com/css?family=Open+Sans:400italic,400,700' rel='stylesheet' type='text/css'>
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+	<!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
 <link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
 <link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
 
@@ -34,70 +34,69 @@
 
 </head>
 
-<body   >
-  <header role="banner"><hgroup>
-  <h1><a href="/">My Octopress Blog</a></h1>
+
+<body>
+	<div class="container">
+		<div class="left-col">
+			<div class="intrude-less">
+			<header id="header" class="inner"><div class="profilepic">
+	
+	<img src="http://www.gravatar.com/avatar/693a4661eaa71435ce5ebe61de64c5a4?s=160" alt="Profile Picture" style="width: 160px;" />
+	
+</div>
+<hgroup>
+  <h1><a href="/">Tafkas' Blog</a></h1>
   
-    <h2>A blogging framework for hackers.</h2>
+    <h2>tba</h2>
   
 </hgroup>
 
-</header>
-  <nav role="navigation"><ul class="subscription" data-subscription="rss">
-  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
-  
-</ul>
-  
-<form action="http://google.com/search" method="get">
-  <fieldset role="search">
-    <input type="hidden" name="q" value="site:Tafkas.github.io" />
-    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
-  </fieldset>
-</form>
-  
-<ul class="main-navigation">
+<nav id="main-nav"><ul class="main-navigation">
   <li><a href="/">Blog</a></li>
   <li><a href="/blog/archives">Archives</a></li>
 </ul>
 
 </nav>
-  <div id="main">
-    <div id="content">
-      <div>
-<article class="hentry" role="article">
-  
-  <header>
-    
-      <h1 class="entry-title">Gathering and Charting Temperatures Using RRDTool and Highcharts</h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-
-
-
-
-  
-
-
-<time datetime="2012-10-03T19:45:00+02:00" pubdate data-updated="true">Oct 3<span>rd</span>, 2012</time>
-        
-      </p>
-    
-  </header>
-
-
-<div class="entry-content"><p>For quite long time I was looking for a way to monitor and record th temperature and humidity at my apartment. What was missing was a convenient, preferably wireless, solution. After receiving my RaspberryPi I started to look into that more intensively.</p>
+<nav id="sub-nav">
+	<div class="social">
+		
+		
+		
+		
+			<a class="twitter" href="http://twitter.com/tafkas" title="Twitter">Twitter</a>
+		
+		
+			<a class="github" href="https://github.com/takfas" title="GitHub">GitHub</a>
+		
+		
+		
+		
+		
+		
+		
+		
+		
+			<a class="rss" href="/atom.xml" title="RSS">RSS</a>
+		
+	</div>
+</nav>
+</header>				
+			</div>
+		</div>	
+		<div class="mid-col">
+			
+				
+			
+			<div class="mid-col-container">
+				<div id="content" class="inner"><article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+	<h1 class="title" itemprop="name">Gathering and Charting Temperatures Using RRDTool and Highcharts</h1>
+	<div class="entry-content" itemprop="articleBody"><p>For quite long time I was looking for a way to monitor and record th temperature and humidity at my apartment. What was missing was a convenient, preferably wireless, solution. After receiving my RaspberryPi I started to look into that more intensively.</p>
 
 <h2>USB-WDE1 Receiver</h2>
 
 <p>The USB Weather Data Receiver USB-WDE1 wirelessly receives data from various weather sensors of ELV at 868 MHz. The receiver is connected to a USB port on the computer, so no additional power supply is required. The data is transmitted via a simple serial ASCII protocol, which is well documented by ELV. The RasberryPi running Raspbian is used for the data acquisition allowing very little power consumption while being completely flexible.</p>
 
-<p><img src="../images/USB-WD1-Receiver.jpg" alt="USB WD1 Receiver" /></p>
+<p><img src="../images/USB-WDE1-Receiver.jpg" alt="USB WDE1 Receiver" /></p>
 
 <p>The USB interface of the USB WDE1 is realized by the USB-serial converter CP 2102 of Silicon Labs. The responsible kernel module CP2101 for accessing the device is included in any modern Linux distribution. When connecting the USB-WDE1 should appear in the system once the appropriate messages:</p>
 
@@ -697,86 +696,30 @@
 <p>I added some Javascript that computes sunrise and sunset for the 24h, 28h, weekly and monthly chart. Then I use this information to plot vertical bands on the chart indicating the effects of the sun on temperatures (and humidities).</p>
 </div>
 
-
-  <footer>
-    <p class="meta">
-      
-  
-
-<span class="byline author vcard">Posted by <span class="fn">Your Name</span></span>
-
-      
-
-
-
-
-
-
-
-
-  
-
-
-<time datetime="2012-10-03T19:45:00+02:00" pubdate data-updated="true">Oct 3<span>rd</span>, 2012</time>
-      
-
-<span class="categories">
-  
-    <a class='category' href='/blog/categories/highcharts/'>highcharts</a>, <a class='category' href='/blog/categories/logging/'>logging</a>, <a class='category' href='/blog/categories/raspberrypi/'>raspberrypi</a>, <a class='category' href='/blog/categories/rrdtool/'>rrdtool</a>, <a class='category' href='/blog/categories/temperatures/'>temperatures</a>
-  
-</span>
-
-
-    </p>
-    
-      <div class="sharing">
-  
-  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://Tafkas.github.io/blog/2012/10/03/gathering-and-charting-temperatures-using-rrdtool-and-highcharts/" data-via="" data-counturl="http://Tafkas.github.io/blog/2012/10/03/gathering-and-charting-temperatures-using-rrdtool-and-highcharts/" >Tweet</a>
-  
-  
-  
-</div>
-
-    
-    <p class="meta">
-      
-      
-    </p>
-  </footer>
 </article>
 
+	<div class="share">
+	<div class="addthis_toolbox addthis_default_style ">
+	
+	
+	<a class="addthis_button_tweet"></a>
+	
+	
+	<a class="addthis_counter addthis_pill_style"></a>
+	</div>
+  <script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pubid="></script>
 </div>
 
-<aside class="sidebar">
-  
-    <section>
-  <h1>Recent Posts</h1>
-  <ul id="recent_posts">
-    
-      <li class="post">
-        <a href="/blog/2012/10/03/gathering-and-charting-temperatures-using-rrdtool-and-highcharts/">Gathering and Charting Temperatures Using RRDTool and Highcharts</a>
-      </li>
-    
-  </ul>
-</section>
 
-
-
-
-
-  
-</aside>
-
-
-    </div>
-  </div>
-  <footer role="contentinfo"><p>
-  Copyright &copy; 2013 - Your Name -
+</div>
+			</div>
+			<footer id="footer" class="inner"><p>
+  Copyright &copy; 2013 - Christian Stade-Schuldt -
   <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
 </p>
 
-</footer>
-  
+Design credit: <a href="http://shashankmehta.in/archive/2012/greyshade.html">Shashank Mehta</a></footer>
+			
 
 
 
@@ -798,5 +741,7 @@
 
 
 
+		</div>
+	</div>
 </body>
 </html>
